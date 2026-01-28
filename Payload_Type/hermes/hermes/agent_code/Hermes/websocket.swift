@@ -9,7 +9,7 @@
 import Foundation
 
 // WebSocket Profile implementation conforming to C2Profile protocol
-class WebSocketProfile: C2Profile, URLSessionWebSocketDelegate {
+class WebSocketProfile: NSObject, C2Profile, URLSessionWebSocketDelegate {
     private var webSocketTask: URLSessionWebSocketTask?
     private var urlSession: URLSession?
     private var connected: Bool = false
