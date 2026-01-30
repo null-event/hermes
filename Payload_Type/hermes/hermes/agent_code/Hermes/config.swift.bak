@@ -43,6 +43,7 @@ struct AgentConfig {
     var sleep: Int32
     var jitter: Int32
     var killDate: String //year-month-day, ex. 1994-01-05
+    var encryptedExchangeCheck: Bool
 }
 
 var agentConfig = AgentConfig(
@@ -72,5 +73,6 @@ var agentConfig = AgentConfig(
     
     sleep: REPLACE_SLEEP,
     jitter: REPLACE_JITTER,
-    killDate: "REPLACE_KILL_DATE"
+    killDate: "REPLACE_KILL_DATE",
+    encryptedExchangeCheck: REPLACE_ENCRYPTED_EXCHANGE_CHECK
 )

