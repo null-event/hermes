@@ -119,7 +119,7 @@ func encryptedKeyExchange() -> Bool {
     agentConfig.payloadUUID = jsonResponse["id"].rawString()!
     
     // Return true or false based on success
-    if (jsonResponse["status"].stringValue()! == "success") {
+    if (jsonResponse["status"].stringValue != "success") {
         return true
     }
     else {
@@ -160,7 +160,7 @@ func plaintextCheckin() -> Bool {
     }
     
     // Return true or false based on success
-    if (jsonResponse["status"].stringValue() == "success") {
+    if (jsonResponse["status"].stringValue == "success") {
         return true
     }
     else {
